@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">BuyBuddy</string>
+    <string name="configuracion">Configuración</string>
+    <string name="buscar">Busqueda</string>
+    <string name="busca">Buscar</string>
+    <string name="agregarProducto">Agregar Producto</string>
+    <string name="agregar">Agregar</string>
+</resources>
