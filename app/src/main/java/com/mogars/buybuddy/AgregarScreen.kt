@@ -2,11 +2,15 @@ package com.mogars.buybuddy
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -24,8 +28,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
@@ -35,39 +42,38 @@ import compose.icons.fontawesomeicons.solid.Save
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AgregarScreen(
-    onBackClick: () -> Unit,
-    onSave: (String) -> Unit
+    nombre: String? = "",
+    onBackClick: () -> Unit = {},
+    onSave: (String) -> Unit = {}
 ) {
-    var productName by rememberSaveable { mutableStateOf("") }
+    var productName by rememberSaveable { mutableStateOf(nombre ?: "") }
 
     Scaffold(
         modifier = Modifier
-            .padding(horizontal = 15.dp)
+            .padding(horizontal = 16.dp)
+            .padding(top = 10.dp)
             .fillMaxSize(),
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            stringResource(R.string.agregarProducto),
-                            color = Color.White,
-                            fontStyle = FontStyle.Normal
-                        )
-                    }
+                    Text(
+                        stringResource(R.string.agregarProducto),
+                        color = colorResource(R.color.white),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontStyle = FontStyle.Normal
+                    )
                 },
                 modifier = Modifier
-                    .padding(vertical = 10.dp)
                     .clip(RoundedCornerShape(20.dp)),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = FontAwesomeIcons.Solid.ArrowLeft,
                             modifier = Modifier.size(20.dp),
                             contentDescription = "Volver",
-                            tint = Color.White
+                            tint = colorResource(R.color.white)
                         )
                     }
                 },
@@ -77,24 +83,39 @@ fun AgregarScreen(
                             imageVector = FontAwesomeIcons.Solid.Save,
                             modifier = Modifier.size(20.dp),
                             contentDescription = "Guardar",
-                            tint = Color.White
+                            tint = colorResource(R.color.white)
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF595552)
+                    containerColor = colorResource(R.color.principal)
                 )
             )
         }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
-        ) {
+    ) { innerPadding ->
+        ScrollContent(innerPadding) {
             // Aquí irá el contenido del formulario
             Text("Agregar nuevo producto")
         }
     }
+}
+
+@Composable
+fun ScrollContent(
+    innerPadding: PaddingValues,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .padding(innerPadding)
+            .fillMaxSize()
+    ) {
+        content()
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AgregarScreenPreview() {
+    AgregarScreen()
 }

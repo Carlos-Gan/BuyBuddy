@@ -1,8 +1,12 @@
 <resources>
-    <string name="app_name">BuyBuddy</string>
+    <string name="app_name" translatable="false">BuyBuddy</string>
     <string name="configuracion">Configuración</string>
     <string name="buscar">Busqueda</string>
     <string name="busca">Buscar</string>
     <string name="agregarProducto">Agregar Producto</string>
     <string name="agregar">Agregar</string>
+    <string name="opciones">Opciones</string>
+    <string name="accion1_op">Selecciona una acción para</string>
+    <string name="modificar">Modificar</string>
+    <string name="borrar">Borrar</string>
 </resources>
