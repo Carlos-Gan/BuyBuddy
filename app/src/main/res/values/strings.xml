@@ -9,4 +9,10 @@
     <string name="accion1_op">Selecciona una acción para</string>
     <string name="modificar">Modificar</string>
     <string name="borrar">Borrar</string>
+    <string name="ingresarNom">Ingrese nombre del producto</string>
+    <string name="ingresarMarca">Ingresar nombre de la marca</string>
+    <string name="ingresarPrecio">Ingresa el precio del producto</string>
+    <string name="precio">Precio</string>
+    <string name="marca">Marca</string>
+    <string name="nombre">Nombre</string>
 </resources>

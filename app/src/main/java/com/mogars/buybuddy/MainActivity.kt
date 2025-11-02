@@ -73,17 +73,35 @@ fun BottomBarScaffold(navController: NavHostController) {
                 NavigationBarItem(
                     selected = currentRoute == "home",
                     onClick = { navController.navigate("home") { launchSingleTop = true } },
-                    icon = { Icon(FontAwesomeIcons.Solid.Home, null, modifier = Modifier.size(23.dp)) }
+                    icon = {
+                        Icon(
+                            FontAwesomeIcons.Solid.Home,
+                            null,
+                            modifier = Modifier.size(23.dp)
+                        )
+                    }
                 )
                 NavigationBarItem(
                     selected = currentRoute == "buscar",
                     onClick = { navController.navigate("buscar") { launchSingleTop = true } },
-                    icon = { Icon(FontAwesomeIcons.Solid.Search, null, modifier = Modifier.size(23.dp)) }
+                    icon = {
+                        Icon(
+                            FontAwesomeIcons.Solid.Search,
+                            null,
+                            modifier = Modifier.size(23.dp)
+                        )
+                    }
                 )
                 NavigationBarItem(
                     selected = currentRoute == "config",
                     onClick = { navController.navigate("config") { launchSingleTop = true } },
-                    icon = { Icon(FontAwesomeIcons.Solid.Hammer, null, modifier = Modifier.size(23.dp)) }
+                    icon = {
+                        Icon(
+                            FontAwesomeIcons.Solid.Hammer,
+                            null,
+                            modifier = Modifier.size(23.dp)
+                        )
+                    }
                 )
             }
         }
@@ -108,12 +126,24 @@ fun NavigationRailScaffold(navController: NavHostController) {
             NavigationRailItem(
                 selected = currentRoute == "buscar",
                 onClick = { navController.navigate("buscar") { launchSingleTop = true } },
-                icon = { Icon(FontAwesomeIcons.Solid.Search, null, modifier = Modifier.size(23.dp)) }
+                icon = {
+                    Icon(
+                        FontAwesomeIcons.Solid.Search,
+                        null,
+                        modifier = Modifier.size(23.dp)
+                    )
+                }
             )
             NavigationRailItem(
                 selected = currentRoute == "config",
                 onClick = { navController.navigate("config") { launchSingleTop = true } },
-                icon = { Icon(FontAwesomeIcons.Solid.Hammer, null, modifier = Modifier.size(23.dp)) }
+                icon = {
+                    Icon(
+                        FontAwesomeIcons.Solid.Hammer,
+                        null,
+                        modifier = Modifier.size(23.dp)
+                    )
+                }
             )
         }
         ScreenContent(
@@ -137,10 +167,6 @@ fun ScreenContent(modifier: Modifier, navController: NavHostController) {
                 AgregarScreen(
                     nombre,
                     onBackClick = { navController.popBackStack() },
-                    onSave = { productoGuardado ->
-                        println("Producto guardado: $productoGuardado")
-                        navController.popBackStack()
-                    }
                 )
             }
         }
