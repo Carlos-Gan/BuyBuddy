@@ -17,36 +17,58 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import com.mogars.buybuddy.ViewModels.AgregarViewModel
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.ArrowLeft
+import compose.icons.fontawesomeicons.solid.Plus
 import compose.icons.fontawesomeicons.solid.Save
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AgregarScreen(
     nombre: String? = "",
     onBackClick: () -> Unit = {},
+    viewModel: AgregarViewModel? = null
 ) {
+    // Variables
     var productName by rememberSaveable { mutableStateOf(nombre ?: "") }
     var productMarca by rememberSaveable { mutableStateOf("") }
     var productPrecio by rememberSaveable { mutableStateOf("") }
+    var productCantidad by rememberSaveable { mutableStateOf("") }
+    var productUnidadMedida by rememberSaveable { mutableStateOf("Unidad") }
+    var productPresentacion by rememberSaveable { mutableStateOf("") }
+    var expandedToolbar by rememberSaveable { mutableStateOf(true) }
+    var expandedUnidad by rememberSaveable { mutableStateOf(false) }
+    var guardandoProducto by remember { mutableStateOf(false) }
+
+    val unidadesDisponibles = listOf(
+        "Unidad",
+        "Mililitro (ml)",
+        "Litro (L)",
+        "Gramo (g)",
+        "Kilogramo (kg)",
+        "Paquete",
+        "Caja",
+        "Docena"
+    )
 
     // Validación mejorada
     val camposValidos = productName.isNotBlank() &&
             productMarca.isNotBlank() &&
             productPrecio.isNotBlank() &&
-            productPrecio.toDoubleOrNull() != null
+            productPrecio.toFloatOrNull() != null &&
+            productCantidad.isNotBlank() &&
+            productCantidad.toFloatOrNull() != null
 
     // Animación de aparición
     var visible by remember { mutableStateOf(false) }
@@ -56,57 +78,75 @@ fun AgregarScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.agregarProducto),
-                        color = colorResource(R.color.white),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector = FontAwesomeIcons.Solid.ArrowLeft,
-                            contentDescription = "Volver",
-                            tint = colorResource(R.color.white)
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { /* Acción de guardar */ },
-                        enabled = camposValidos
-                    ) {
-                        Icon(
-                            imageVector = FontAwesomeIcons.Solid.Save,
-                            contentDescription = "Guardar",
-                            tint = if (camposValidos)
-                                colorResource(R.color.white)
-                            else
-                                colorResource(android.R.color.darker_gray)
-                        )
-                    }
-                },
-                modifier = Modifier
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .clip(RoundedCornerShape(16.dp)),
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = colorResource(R.color.principal),
-                    scrolledContainerColor = colorResource(R.color.principal)
-                ),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-            )
-        }
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Floating Toolbar
+            HorizontalFloatingToolbar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .offset(y = -FloatingToolbarDefaults.ScreenOffset)
+                    .zIndex(1f),
+                expanded = expandedToolbar,
+                trailingContent = {
+                    AppBarRow {
+                        clickableItem(
+                            onClick = onBackClick,
+                            icon = {
+                                Icon(
+                                    FontAwesomeIcons.Solid.ArrowLeft,
+                                    contentDescription = "Volver",
+                                    Modifier.size(35.dp)
+                                )
+                            },
+                            label = "",
+                            enabled = !guardandoProducto
+                        )
+                        clickableItem(
+                            onClick = {
+                                if (camposValidos && viewModel != null && !guardandoProducto) {
+                                    guardandoProducto = true
+                                    viewModel.guardarProducto(
+                                        nombre = productName,
+                                        marca = productMarca,
+                                        precio = productPrecio.toFloatOrNull() ?: 0f,
+                                        cantidad = productCantidad.toFloatOrNull() ?: 0f,
+                                        unidad = productUnidadMedida,
+                                        presentacion = productPresentacion.ifEmpty {
+                                            "${productCantidad} ${productUnidadMedida}"
+                                        }
+                                    )
+                                    // Esperar un momento antes de volver
+                                    onBackClick()
+                                }
+                            },
+                            icon = {
+                                if (guardandoProducto) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = Color.White
+                                    )
+                                } else {
+                                    Icon(
+                                        FontAwesomeIcons.Solid.Save,
+                                        contentDescription = "Guardar",
+                                        Modifier.size(35.dp),
+                                        tint = if (camposValidos) Color.White else Color.Gray
+                                    )
+                                }
+                            },
+                            label = "",
+                            enabled = camposValidos && !guardandoProducto
+                        )
+                    }
+                },
+                content = { },
+            )
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -141,7 +181,6 @@ fun AgregarScreen(
                             Text(
                                 text = "Completa la información del producto que deseas agregar",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -196,6 +235,67 @@ fun AgregarScreen(
                                 )
                             }
 
+                            // Campo Cantidad
+                            FormField(
+                                label = "Cantidad",
+                                isRequired = true
+                            ) {
+                                TextInputModificado(
+                                    valor = productCantidad,
+                                    label = "Cantidad",
+                                    placeholder = "Ej: 1, 300, 0.5",
+                                    teclado = KeyboardType.Decimal,
+                                    onValueChange = { productCantidad = it },
+                                    isError = productCantidad.isNotEmpty() && productCantidad.toFloatOrNull() == null
+                                )
+                            }
+
+                            // Campo Unidad de Medida (Dropdown)
+                            FormField(
+                                label = "Unidad de Medida",
+                                isRequired = true
+                            ) {
+                                Box {
+                                    OutlinedButton(
+                                        onClick = { expandedUnidad = !expandedUnidad },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = colorResource(R.color.principal)
+                                        )
+                                    ) {
+                                        Text(
+                                            text = productUnidadMedida,
+                                            modifier = Modifier.weight(1f),
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Start
+                                        )
+                                        Icon(
+                                            imageVector = FontAwesomeIcons.Solid.Plus,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = expandedUnidad,
+                                        onDismissRequest = { expandedUnidad = false },
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.9f)
+                                            .background(MaterialTheme.colorScheme.surface)
+                                    ) {
+                                        unidadesDisponibles.forEach { unidad ->
+                                            DropdownMenuItem(
+                                                text = { Text(unidad) },
+                                                onClick = {
+                                                    productUnidadMedida = unidad
+                                                    expandedUnidad = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
                             // Campo Precio
                             FormField(
                                 label = stringResource(R.string.precio),
@@ -207,9 +307,59 @@ fun AgregarScreen(
                                     placeholder = stringResource(R.string.ingresarPrecio),
                                     teclado = KeyboardType.Decimal,
                                     onValueChange = { productPrecio = it },
-                                    isError = productPrecio.isNotEmpty() && productPrecio.toDoubleOrNull() == null,
+                                    isError = productPrecio.isNotEmpty() && productPrecio.toFloatOrNull() == null,
                                     prefix = "$"
                                 )
+                            }
+
+                            // Campo Presentación (Opcional)
+                            FormField(
+                                label = "Presentación (Opcional)",
+                                isRequired = false
+                            ) {
+                                TextInputModificado(
+                                    valor = productPresentacion,
+                                    label = "Presentación",
+                                    placeholder = "Ej: 1kg de carne molida, 6 unidades",
+                                    teclado = KeyboardType.Text,
+                                    onValueChange = { productPresentacion = it },
+                                    isError = false
+                                )
+                            }
+
+                            // Vista previa de presentación
+                            if (productCantidad.isNotEmpty()) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            colorResource(R.color.principal).copy(alpha = 0.05f),
+                                            RoundedCornerShape(12.dp)
+                                        ),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = colorResource(R.color.principal).copy(alpha = 0.05f)
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Vista previa:",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = productPresentacion.ifEmpty { "${productCantidad} ${productUnidadMedida}" },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colorResource(R.color.principal)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -224,13 +374,14 @@ fun AgregarScreen(
                         fieldsCompleted = listOf(
                             productName.isNotBlank(),
                             productMarca.isNotBlank(),
-                            camposValidos
+                            productCantidad.isNotBlank() && productCantidad.toFloatOrNull() != null,
+                            productPrecio.isNotBlank() && productPrecio.toFloatOrNull() != null
                         ).count { it },
-                        totalFields = 3
+                        totalFields = 4
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(100.dp))
             }
         }
     }
@@ -281,7 +432,12 @@ fun TextInputModificado(
         value = valor,
         onValueChange = onValueChange,
         label = { Text(label) },
-        placeholder = { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
+        placeholder = {
+            Text(
+                placeholder,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+        },
         prefix = prefix?.let { { Text(it, style = MaterialTheme.typography.bodyLarge) } },
         shape = RoundedCornerShape(16.dp),
         keyboardOptions = KeyboardOptions(keyboardType = teclado),
@@ -290,7 +446,9 @@ fun TextInputModificado(
             .focusable(true),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = if (isError) MaterialTheme.colorScheme.error else colorResource(R.color.principal),
-            unfocusedBorderColor = if (isError) MaterialTheme.colorScheme.error.copy(alpha = 0.5f) else colorResource(R.color.gris_claro),
+            unfocusedBorderColor = if (isError) MaterialTheme.colorScheme.error.copy(alpha = 0.5f) else colorResource(
+                R.color.gris_claro
+            ),
             cursorColor = colorResource(R.color.principal),
             focusedLabelColor = if (isError) MaterialTheme.colorScheme.error else colorResource(R.color.principal),
             errorBorderColor = MaterialTheme.colorScheme.error,
@@ -299,7 +457,7 @@ fun TextInputModificado(
         ),
         isError = isError,
         supportingText = if (isError && teclado == KeyboardType.Decimal) {
-            { Text("Ingresa un precio válido", color = MaterialTheme.colorScheme.error) }
+            { Text("Ingresa un valor válido", color = MaterialTheme.colorScheme.error) }
         } else null
     )
 }

@@ -3,7 +3,6 @@ package com.mogars.buybuddy
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,76 +20,42 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.mogars.buybuddy.ViewModels.BuscarViewModel
+import com.mogars.buybuddy.ViewModels.BuscarViewModelFactory
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Search
 import compose.icons.fontawesomeicons.solid.Trash
-import java.time.LocalDate
+import com.mogars.buybuddy.data.repository.ProductoRepository
 
 
-//Metodos utilizados
+// Método para obtener el precio actual de un producto
 fun Producto.precioActual(): Float? = precios.maxByOrNull { it.fecha }?.costo
-
 
 @Composable
 fun BuscarScreen(
     navController: NavHostController,
-    onResultClick: (Producto) -> Unit = {},
+    repository: ProductoRepository
 ) {
+    // Crear ViewModel
+    val viewModel: BuscarViewModel = viewModel(
+        factory = BuscarViewModelFactory(repository)
+    )
+
     val textFieldState = rememberTextFieldState()
-    var showDialog by remember { mutableStateOf(false) }
-    var selectedProducto by remember { mutableStateOf<Producto?>(null) }
-
-    // Lista de productos simulada
-    val allProductos = remember {
-        listOf(
-            Producto(
-                id = 1,
-                nombre = "Leche",
-                marca = "Lala",
-                estado = false,
-                precios = listOf(
-                    Precio(18.50f, LocalDate.of(2025, 10, 1)),
-                    Precio(32.50f, LocalDate.of(2025, 10, 10))
-                )
-            ),
-            Producto(
-                id = 2,
-                nombre = "Pan Artesanal",
-                marca = "Bimbo",
-                estado = false,
-                precios = listOf(
-                    Precio(18.50f, LocalDate.of(2025, 10, 1)),
-                    Precio(32.50f, LocalDate.of(2025, 10, 10))
-                )
-            ),
-            Producto(
-                id = 3,
-                nombre = "Queso Oaxaca",
-                marca = "Generico",
-                estado = false,
-                precios = listOf(
-                    Precio(18.50f, LocalDate.of(2025, 10, 8)),
-                )
-            )
-        ).sortedBy { it.nombre }
-    }
-
     val query = textFieldState.text.toString()
 
-    val filteredProductos by remember(query) {
-        mutableStateOf(
-            if (query.isBlank()) allProductos
-            else allProductos.filter { it.nombre.contains(query, ignoreCase = true) }
-        )
-    }
+    // Obtener productos filtrados del ViewModel
+    val filteredProductos by viewModel.buscarProductos(query).collectAsState(initial = emptyList())
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(15.dp)
     ) {
+        // Título
         Text(
             text = stringResource(R.string.buscar),
             fontSize = 28.sp,
@@ -98,22 +63,34 @@ fun BuscarScreen(
             modifier = Modifier.padding(top = 20.dp, bottom = 16.dp)
         )
 
+        // Barra de búsqueda
         SearchBarSimple(textFieldState)
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        // Lista de resultados
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (query.isBlank() || filteredProductos.isNotEmpty()) {
+            if (query.isBlank()) {
+                // Si el query está vacío, mostrar todos los productos
                 items(filteredProductos) { producto ->
                     ResultadoItem(
                         producto = producto,
-                        onClick = { onResultClick(producto) }
+                        onClick = { /* Acción al hacer click */ }
                     )
                 }
-            } else { // No hay coincidencias
+            } else if (filteredProductos.isNotEmpty()) {
+                // Si hay coincidencias, mostrar productos filtrados
+                items(filteredProductos) { producto ->
+                    ResultadoItem(
+                        producto = producto,
+                        onClick = { /* Acción al hacer click */ }
+                    )
+                }
+            } else {
+                // Si no hay coincidencias, mostrar botón para agregar nuevo producto
                 item {
                     ResultadoItemAdd(
                         text = "${stringResource(R.string.agregar)} \"$query\"",
@@ -125,38 +102,15 @@ fun BuscarScreen(
             }
         }
     }
-    if (showDialog && selectedProducto != null) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text(stringResource(R.string.opciones)) },
-            text = {
-                Text(text = stringResource(R.string.accion1_op, selectedProducto?.nombre ?: ""))
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDialog = false
-                        navController.navigate("")
-                    }
-                ) { Text(stringResource(R.string.modificar)) }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showDialog = false
-                        navController.navigate("")
-                    }
-                ) { Text(stringResource(R.string.agregar)) }
-            }
-        )
-    }
 }
 
 @Composable
 fun SearchBarSimple(textFieldState: TextFieldState) {
     TextField(
         value = textFieldState.text.toString(),
-        onValueChange = { textFieldState.edit { replace(0, length, it) } },
+        onValueChange = { newValue ->
+            textFieldState.edit { replace(0, length, newValue) }
+        },
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(25.dp)),
@@ -190,8 +144,7 @@ fun SearchBarSimple(textFieldState: TextFieldState) {
                 Icon(
                     FontAwesomeIcons.Solid.Trash,
                     contentDescription = stringResource(R.string.borrar),
-                    modifier = Modifier
-                        .size(15.dp),
+                    modifier = Modifier.size(15.dp),
                     tint = colorResource(R.color.white)
                 )
             }
@@ -212,36 +165,42 @@ fun ResultadoItem(
             .clip(RoundedCornerShape(18.dp))
             .background(colorResource(R.color.principal))
             .padding(horizontal = 16.dp)
-
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Información del producto (izquierda)
             Column(
                 verticalArrangement = Arrangement.SpaceEvenly,
-            )
-            {
+                modifier = Modifier.weight(1f)
+            ) {
                 Spacer(modifier = Modifier.height(8.dp))
+
+                // Nombre
                 Text(
                     text = producto.nombre,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Start,
-                    modifier = Modifier.weight(1f)
+                    maxLines = 1
                 )
+
+                // Marca
                 Text(
                     text = producto.marca,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Start,
-                    modifier = Modifier.weight(1f),
-                    color = colorResource(R.color.gris_claro)
+                    color = colorResource(R.color.gris_claro),
+                    maxLines = 1
                 )
             }
+
+            // Precio actual (derecha)
             Text(
-                text = producto.precioActual().toString(),
+                text = "$$${producto.precioActual()?.let { "%.2f".format(it) } ?: "N/A"}",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colorResource(R.color.gris_claro)
@@ -268,4 +227,3 @@ fun ResultadoItemAdd(text: String, onClick: () -> Unit) {
         )
     }
 }
-

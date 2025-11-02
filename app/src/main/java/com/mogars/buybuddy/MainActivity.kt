@@ -18,16 +18,21 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.mogars.buybuddy.ViewModels.AgregarViewModel
+import com.mogars.buybuddy.ViewModels.AgregarViewModelFactory
+import com.mogars.buybuddy.ViewModels.HomeViewModel
+import com.mogars.buybuddy.ViewModels.HomeViewModelFactory
+import com.mogars.buybuddy.data.local.AppDatabase
+import com.mogars.buybuddy.data.repository.ProductoRepository
 import com.mogars.buybuddy.ui.theme.BuyBuddyTheme
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
@@ -36,13 +41,22 @@ import compose.icons.fontawesomeicons.solid.Home
 import compose.icons.fontawesomeicons.solid.Search
 
 class MainActivity : ComponentActivity() {
+    //  Crear instania de la base de datos
+    private val database by lazy { AppDatabase.getInstance(this) }
+    private val repository by lazy {
+        ProductoRepository(
+            productoDao = database.productoDao(),
+            precioDao = database.precioDao()
+        )
+    }
+
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             BuyBuddyTheme {
-                MainAdaptiveScaffold()
+                MainAdaptiveScaffold(repository = repository)
             }
         }
     }
@@ -50,20 +64,20 @@ class MainActivity : ComponentActivity() {
 
 @ExperimentalMaterial3ExpressiveApi
 @Composable
-fun MainAdaptiveScaffold() {
+fun MainAdaptiveScaffold(repository: ProductoRepository) {
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val isTablet = screenWidthDp >= 600
     val navController = rememberNavController()
 
     if (isTablet) {
-        NavigationRailScaffold(navController = navController)
+        NavigationRailScaffold(navController = navController, repository = repository)
     } else {
-        BottomBarScaffold(navController = navController)
+        BottomBarScaffold(navController = navController, repository = repository)
     }
 }
 
 @Composable
-fun BottomBarScaffold(navController: NavHostController) {
+fun BottomBarScaffold(navController: NavHostController, repository: ProductoRepository) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -106,13 +120,17 @@ fun BottomBarScaffold(navController: NavHostController) {
             }
         }
     ) { inner ->
-        ScreenContent(modifier = Modifier.padding(inner), navController = navController)
+        ScreenContent(
+            modifier = Modifier.padding(inner),
+            navController = navController,
+            repository = repository
+        )
     }
 }
 
 @ExperimentalMaterial3ExpressiveApi
 @Composable
-fun NavigationRailScaffold(navController: NavHostController) {
+fun NavigationRailScaffold(navController: NavHostController, repository: ProductoRepository) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -150,23 +168,42 @@ fun NavigationRailScaffold(navController: NavHostController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            navController = navController
+            navController = navController,
+            repository = repository
         )
     }
 }
 
 @Composable
-fun ScreenContent(modifier: Modifier, navController: NavHostController) {
+fun ScreenContent(
+    modifier: Modifier,
+    navController: NavHostController,
+    repository: ProductoRepository
+) {
     Box(modifier) {
         NavHost(navController = navController, startDestination = "home") {
-            composable("home") { HomeScreen() }
-            composable("buscar") { BuscarScreen(navController) }
+            // Home Screen
+            composable("home") {
+                val viewModel: HomeViewModel = viewModel(
+                    factory = HomeViewModelFactory(repository)
+                )
+                HomeScreen(viewModel = viewModel)
+            }
+            // Buscar Screen
+            composable("buscar") {
+                BuscarScreen(navController, repository)
+            }
             composable("config") { ConfigScreen() }
+            // Agregar Screen
             composable("AgregarScreen?nombre={nombre}") { backStackEntry ->
                 val nombre = backStackEntry.arguments?.getString("nombre") ?: ""
+                val viewModel: AgregarViewModel = viewModel(
+                    factory = AgregarViewModelFactory(repository)
+                )
                 AgregarScreen(
-                    nombre,
+                    nombre = nombre,
                     onBackClick = { navController.popBackStack() },
+                    viewModel = viewModel
                 )
             }
         }

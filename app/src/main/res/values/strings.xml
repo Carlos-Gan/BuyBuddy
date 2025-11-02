@@ -15,4 +15,7 @@
     <string name="precio">Precio</string>
     <string name="marca">Marca</string>
     <string name="nombre">Nombre</string>
+    <string name="cantidad">Cantidad</string>
+    <string name="unidadMedida">Unidad de Medida</string>
+    <string name="presentacion">Presentación </string>
 </resources>
