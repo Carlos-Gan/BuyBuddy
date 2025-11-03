@@ -11,7 +11,7 @@ import com.mogars.buybuddy.data.local.entity.PrecioEntity
 
 @Database(
     entities = [ProductoEntity::class, PrecioEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

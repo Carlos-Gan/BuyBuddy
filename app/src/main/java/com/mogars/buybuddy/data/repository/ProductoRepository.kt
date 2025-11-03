@@ -1,12 +1,14 @@
 package com.mogars.buybuddy.data.repository
 
 import com.mogars.buybuddy.Producto
+import com.mogars.buybuddy.Precio
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import com.mogars.buybuddy.data.local.dao.ProductoDao
 import com.mogars.buybuddy.data.local.dao.PrecioDao
 import com.mogars.buybuddy.data.local.entity.ProductoEntity
 import com.mogars.buybuddy.data.local.entity.PrecioEntity
+import com.mogars.buybuddy.data.local.entity.ProductoConPrecios
 import java.time.LocalDate
 
 class ProductoRepository(
@@ -41,25 +43,23 @@ class ProductoRepository(
         precioDao.insertarPrecio(precio)
     }
 
-    // Obtener todos los productos
+    // Obtiene productos CON precios
     fun obtenerTodosLosProductos(): Flow<List<Producto>> {
-        return productoDao.obtenerTodosLosProductos().map { productos ->
-            productos.map { it.toProducto() }
+        return productoDao.obtenerTodosLosProductos().map { productosConPrecios ->
+            productosConPrecios.map { it.aProducto() }
         }
     }
 
-    // Buscar productos
+    // Búsqueda CON precios
     fun buscarProductos(nombre: String): Flow<List<Producto>> {
-        return productoDao.buscarProductosPorNombre(nombre).map { productos ->
-            productos.map { it.toProducto() }
+        return productoDao.buscarProductosPorNombre(nombre).map { productosConPrecios ->
+            productosConPrecios.map { it.aProducto() }
         }
     }
 
-    // Obtener producto por ID
+    // Obtiene producto CON precios
     suspend fun obtenerProductoPorId(id: Int): Producto? {
-        val productoEntity = productoDao.obtenerProductoPorId(id) ?: return null
-        val precios = precioDao.obtenerPreciosPorProducto(id)
-        return productoEntity.toProducto()
+        return productoDao.obtenerProductoPorIdConPrecios(id)?.aProducto()
     }
 
     // Actualizar producto
@@ -98,26 +98,37 @@ class ProductoRepository(
         productoDao.eliminarProductoPorId(id)
     }
 
-    // Conversor
-    private fun ProductoEntity.toProducto(): Producto {
-        return Producto(
-            id = id,
-            nombre = nombre,
-            marca = marca,
-            cantidad = cantidad,
-            unidadMetrica = unidadMetrica,
-            presentacion = presentacion,
-            estado = estado,
-            precios = emptyList()
-        )
-    }
+    // Marcar como completado (estado = false)
     suspend fun actualizarEstadoProducto(id: Int, estado: Boolean) {
         productoDao.actualizarEstadoProducto(id, estado)
     }
 
+    // Obtiene productos activos con precios
     fun obtenerProductosActivos(): Flow<List<Producto>> {
-        return productoDao.obtenerProductosActivos().map { productos ->
-            productos.map { it.toProducto() }
+        return productoDao.obtenerProductosActivos().map { productosConPrecios ->
+            productosConPrecios.map { it.aProducto() }
         }
+    }
+
+    // ==================== MAPEO DE ENTIDADES ====================
+
+    private fun ProductoConPrecios.aProducto(): Producto {
+        return Producto(
+            id = producto.id,
+            nombre = producto.nombre,
+            marca = producto.marca,
+            cantidad = producto.cantidad,
+            unidadMetrica = producto.unidadMetrica,
+            presentacion = producto.presentacion,
+            estado = producto.estado,
+            // Convertir lista de precios
+            precios = precios.map { precioEntity ->
+                Precio(
+                    costo = precioEntity.costo,
+                    fecha = LocalDate.parse(precioEntity.fecha)
+                )
+            },
+            categorias = emptyList()
+        )
     }
 }

@@ -32,7 +32,54 @@ import com.mogars.buybuddy.data.repository.ProductoRepository
 
 
 // Método para obtener el precio actual de un producto
-fun Producto.precioActual(): Float? = precios.maxByOrNull { it.fecha }?.costo
+fun Producto.precioActual(): Float? {
+    return if (precios.isNotEmpty()) {
+        precios.maxByOrNull { it.fecha }?.costo
+    } else {
+        null
+    }
+}
+
+// Método para calcular el precio unitario basado en la cantidad y unidad métrica
+fun Producto.precioUnitario(): Float? {
+    val precioBase = precioActual() ?: return null
+    if (precioBase <= 0) return null
+
+    val cant = if (cantidad > 0) cantidad else 1f
+
+    return when (unidadMetrica.lowercase().trim()) {
+        "kg", "kilogramo", "kilogramos" -> precioBase / cant
+        "l", "litro", "litros" -> precioBase / cant
+        "ml", "mililitro", "mililitros" -> precioBase / cant
+        "g", "gramo", "gramos" -> precioBase / cant
+        "unidad", "unidades", "u", "und" -> precioBase / cant
+        "docena", "docenas" -> precioBase / (cant * 12)
+        "paquete", "paquetes", "paq" -> precioBase / cant
+        else -> precioBase / cant
+    }
+}
+
+// Método para obtener el precio formateado con la unidad métrica
+fun Producto.precioFormato(): String {
+    // Si no hay precios, intentar mostrar al menos el precio base
+    val precioBase = precioActual()
+    if (precioBase == null || precioBase <= 0) {
+        return "N/A"
+    }
+
+    val precio = precioUnitario() ?: precioBase
+    val unidad = when (unidadMetrica.lowercase().trim()) {
+        "kg", "kilogramo", "kilogramos" -> "/kg"
+        "l", "litro", "litros" -> "/L"
+        "ml", "mililitro", "mililitros" -> "/mL"
+        "g", "gramo", "gramos" -> "/g"
+        "unidad", "unidades", "u", "und" -> "/u"
+        "docena", "docenas" -> "/doc"
+        "paquete", "paquetes", "paq" -> "/paq"
+        else -> ""
+    }
+    return "${"%.2f".format(precio)}$unidad"
+}
 
 @Composable
 fun BuscarScreen(
@@ -198,9 +245,9 @@ fun ResultadoItem(
                 )
             }
 
-            // Precio actual (derecha)
+            // Precio unitario formateado (derecha)
             Text(
-                text = "$$${producto.precioActual()?.let { "%.2f".format(it) } ?: "N/A"}",
+                text = producto.precioFormato(),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colorResource(R.color.gris_claro)

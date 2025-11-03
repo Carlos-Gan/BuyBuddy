@@ -5,12 +5,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
@@ -18,21 +15,27 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.solid.Edit
 import compose.icons.fontawesomeicons.solid.Trash
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.stringResource
 import com.mogars.buybuddy.ViewModels.HomeViewModel
 
 /**
- * Pantalla principal que muestra todos los productos activos
- *
- * @param viewModel ViewModel que maneja la lógica de HomeScreen (recibido desde MainActivity)
+ * Pantalla principal con lista de compras tipo checklist
+ * Los productos marcados como completados se mueven al final
  */
 @Composable
 fun HomeScreen(viewModel: HomeViewModel) {
-    // Obtener la lista de productos activos como State
+    // Obtener la lista de productos activos
     val productos by viewModel.productosActivos.collectAsState(initial = emptyList())
+
+    // ✅ CAMBIO: Obtener el estado de completados del ViewModel (persiste al cambiar de pestaña)
+    val productosCompletados by viewModel.productosCompletados.collectAsState(initial = emptySet())
+
+    // Separar productos completados de incompletos
+    val productosIncompletos = productos.filter { it.id !in productosCompletados }
+    val productosCompletadosList = productos.filter { it.id in productosCompletados }
 
     Column(
         modifier = Modifier
@@ -42,7 +45,10 @@ fun HomeScreen(viewModel: HomeViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Header
-        HeaderProductos()
+        HeaderProductos(
+            totalProductos = productos.size,
+            completados = productosCompletados.size
+        )
 
         // Lista de productos o estado vacío
         if (productos.isEmpty()) {
@@ -50,13 +56,46 @@ fun HomeScreen(viewModel: HomeViewModel) {
         } else {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
             ) {
-                items(productos) { producto ->
-                    ProductoCard(
+                // Productos incompletos primero
+                items(productosIncompletos) { producto ->
+                    ProductoChecklistCard(
                         producto = producto,
-                        onEliminar = { viewModel.eliminarProducto(producto.id) },
-                        onEditar = { /* Navegar a editar en el futuro */ }
+                        isCompleted = false,
+                        onToggleComplete = {
+                            // ✅ CAMBIO: Llamar al ViewModel en lugar de actualizar estado local
+                            viewModel.marcarComoCompletado(producto.id)
+                        },
+                        onEliminar = { viewModel.eliminarProducto(producto.id) }
+                    )
+                }
+
+                // Separador si hay completados
+                if (productosCompletadosList.isNotEmpty()) {
+                    item {
+                        HorizontalDivider(
+                            modifier = Modifier
+                                .padding(vertical = 12.dp)
+                                .fillMaxWidth(),
+                            color = colorResource(R.color.gris_claro)
+                        )
+                        Text(stringResource(R.string.productosCompletados))
+                    }
+                }
+
+                // Productos completados al final
+                items(productosCompletadosList) { producto ->
+                    ProductoChecklistCard(
+                        producto = producto,
+                        isCompleted = true,
+                        onToggleComplete = {
+                            // ✅ CAMBIO: Llamar al ViewModel en lugar de actualizar estado local
+                            viewModel.marcarComoNoCompletado(producto.id)
+                        },
+                        onEliminar = { viewModel.eliminarProducto(producto.id) }
                     )
                 }
             }
@@ -65,21 +104,21 @@ fun HomeScreen(viewModel: HomeViewModel) {
 }
 
 /**
- * Header con título y descripción
+ * Header mejorado con contador de completados
  */
 @Composable
-fun HeaderProductos() {
+fun HeaderProductos(totalProductos: Int = 0, completados: Int = 0) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = "Mis Productos",
+            text = stringResource(R.string.listaDeCompras),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = colorResource(R.color.principal)
         )
         Text(
-            text = "Gestiona tu lista de compras",
+            text = "$completados ${stringResource(R.string.de)} $totalProductos ${stringResource(R.string.completados)}",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -87,17 +126,14 @@ fun HeaderProductos() {
 }
 
 /**
- * Tarjeta individual de producto con información y acciones
- *
- * @param producto Datos del producto a mostrar
- * @param onEliminar Callback cuando se presiona el botón eliminar
- * @param onEditar Callback cuando se presiona el botón editar
+ * Tarjeta de producto con checkbox
  */
 @Composable
-fun ProductoCard(
+fun ProductoChecklistCard(
     producto: Producto,
-    onEliminar: () -> Unit,
-    onEditar: () -> Unit
+    isCompleted: Boolean,
+    onToggleComplete: () -> Unit,
+    onEliminar: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -105,7 +141,10 @@ fun ProductoCard(
             .shadow(2.dp, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (isCompleted)
+                colorResource(R.color.gris_claro).copy(alpha = 0.2f)
+            else
+                MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
@@ -115,20 +154,35 @@ fun ProductoCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Sección izquierda: Información del producto
+            // Checkbox
+            Checkbox(
+                checked = isCompleted,
+                onCheckedChange = { onToggleComplete() },
+                modifier = Modifier.size(24.dp),
+                colors = CheckboxDefaults.colors(
+                    checkedColor = colorResource(R.color.principal),
+                    uncheckedColor = colorResource(R.color.principal)
+                )
+            )
+
+            // Información del producto
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = 12.dp),
+                    .padding(horizontal = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Nombre del producto
                 Text(
                     text = producto.nombre,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = if (isCompleted) FontWeight.Normal else FontWeight.Bold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (isCompleted)
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    else
+                        MaterialTheme.colorScheme.onSurface
                 )
 
                 // Marca y presentación
@@ -138,7 +192,7 @@ fun ProductoCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Marca: ${producto.marca}",
+                        text = "${stringResource(R.string.marca)}: ${producto.marca}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -147,7 +201,8 @@ fun ProductoCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = producto.presentacion ?: "${producto.cantidad} ${producto.unidadMetrica}",
+                        text = producto.presentacion
+                            ?: "${producto.cantidad} ${producto.unidadMetrica}",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorResource(R.color.principal),
                         fontWeight = FontWeight.SemiBold,
@@ -155,66 +210,31 @@ fun ProductoCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                // Badge de cantidad
-                Surface(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp)),
-                    color = colorResource(R.color.principal).copy(alpha = 0.1f)
-                ) {
-                    Text(
-                        text = "${producto.cantidad} ${producto.unidadMetrica}",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colorResource(R.color.principal),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
             }
 
-            // Sección derecha: Botones de acciones
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            // Botón eliminar
+            IconButton(
+                onClick = onEliminar,
+                modifier = Modifier.size(40.dp)
             ) {
-                // Botón editar
-                IconButton(
-                    onClick = onEditar,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = FontAwesomeIcons.Solid.Edit,
-                        contentDescription = "Editar",
-                        tint = colorResource(R.color.principal),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Botón eliminar
-                IconButton(
-                    onClick = onEliminar,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = FontAwesomeIcons.Solid.Trash,
-                        contentDescription = "Eliminar",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Icon(
+                    imageVector = FontAwesomeIcons.Solid.Trash,
+                    contentDescription = stringResource(R.string.eliminar),
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
 }
 
 /**
- * Estado vacío cuando no hay productos agregados
+ * Estado vacío cuando no hay productos
  */
 @Composable
 fun EmptyProductosState() {
     Box(
-        modifier = Modifier
-            .fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -222,22 +242,17 @@ fun EmptyProductosState() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(32.dp)
         ) {
-            // Emoji de portapapeles
             Text(
-                text = "📋",
+                text = "🛒",
                 style = MaterialTheme.typography.displayLarge
             )
-
-            // Título
             Text(
-                text = "Sin productos",
+                text = stringResource(R.string.sinProductos),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
-
-            // Descripción
             Text(
-                text = "Agrega tu primer producto para comenzar",
+                text = stringResource(R.string.agregarProductoParaComenzar),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center

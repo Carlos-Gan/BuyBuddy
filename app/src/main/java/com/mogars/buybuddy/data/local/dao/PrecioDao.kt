@@ -3,11 +3,15 @@ package com.mogars.buybuddy.data.local.dao
 import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 import com.mogars.buybuddy.data.local.entity.PrecioEntity
+
 @Dao
 interface PrecioDao {
     // Operaciones CRUD para Precios
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertarPrecio(precio: PrecioEntity)
+    suspend fun insertarPrecio(precio: PrecioEntity): Long
+
+    @Insert
+    suspend fun insertarMultiplesPrecios(precios: List<PrecioEntity>)
 
     @Query("SELECT * FROM precios WHERE productoId = :productoId ORDER BY fecha DESC")
     fun obtenerPreciosPorProducto(productoId: Int): Flow<List<PrecioEntity>>
@@ -20,4 +24,7 @@ interface PrecioDao {
 
     @Delete
     suspend fun eliminarPrecio(precio: PrecioEntity)
+
+    @Query("DELETE FROM precios WHERE productoId = :productoId")
+    suspend fun eliminarPreciosPorProducto(productoId: Int)
 }

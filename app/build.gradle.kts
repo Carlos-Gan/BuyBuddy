@@ -62,9 +62,11 @@ dependencies {
 
     //Agregados
     implementation(libs.androidx.navigation.compose)
-    implementation("androidx.room:room-runtime:2.8.3")
-    implementation("androidx.room:room-ktx:2.8.3")
-    kapt("androidx.room:room-compiler:2.8.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.9.0")
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
+    implementation(libs.kotlinx.metadata.jvm)
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+
 }
 

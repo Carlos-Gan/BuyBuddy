@@ -31,6 +31,7 @@ import com.mogars.buybuddy.ViewModels.AgregarViewModel
 import com.mogars.buybuddy.ViewModels.AgregarViewModelFactory
 import com.mogars.buybuddy.ViewModels.HomeViewModel
 import com.mogars.buybuddy.ViewModels.HomeViewModelFactory
+import com.mogars.buybuddy.data.PreferencesManager
 import com.mogars.buybuddy.data.local.AppDatabase
 import com.mogars.buybuddy.data.repository.ProductoRepository
 import com.mogars.buybuddy.ui.theme.BuyBuddyTheme
@@ -41,7 +42,7 @@ import compose.icons.fontawesomeicons.solid.Home
 import compose.icons.fontawesomeicons.solid.Search
 
 class MainActivity : ComponentActivity() {
-    //  Crear instania de la base de datos
+    //  Crear instancia de la base de datos
     private val database by lazy { AppDatabase.getInstance(this) }
     private val repository by lazy {
         ProductoRepository(
@@ -50,13 +51,17 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private val preferencesManager by lazy {
+        PreferencesManager(this)
+    }
+
     @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             BuyBuddyTheme {
-                MainAdaptiveScaffold(repository = repository)
+                MainAdaptiveScaffold(repository = repository, preferencesManager = preferencesManager)
             }
         }
     }
@@ -64,22 +69,29 @@ class MainActivity : ComponentActivity() {
 
 @ExperimentalMaterial3ExpressiveApi
 @Composable
-fun MainAdaptiveScaffold(repository: ProductoRepository) {
+fun MainAdaptiveScaffold(repository: ProductoRepository, preferencesManager: PreferencesManager) {
     val screenWidthDp = LocalConfiguration.current.screenWidthDp
     val isTablet = screenWidthDp >= 600
     val navController = rememberNavController()
 
     if (isTablet) {
-        NavigationRailScaffold(navController = navController, repository = repository)
+        NavigationRailScaffold(navController = navController, repository = repository, preferencesManager = preferencesManager)
     } else {
-        BottomBarScaffold(navController = navController, repository = repository)
+        BottomBarScaffold(navController = navController, repository = repository, preferencesManager = preferencesManager)
     }
 }
 
 @Composable
-fun BottomBarScaffold(navController: NavHostController, repository: ProductoRepository) {
+fun BottomBarScaffold(
+    navController: NavHostController,
+    repository: ProductoRepository,
+    preferencesManager: PreferencesManager
+) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val homeViewModel: HomeViewModel = viewModel(
+        factory = HomeViewModelFactory(repository, preferencesManager)
+    )
 
     Scaffold(
         bottomBar = {
@@ -123,14 +135,19 @@ fun BottomBarScaffold(navController: NavHostController, repository: ProductoRepo
         ScreenContent(
             modifier = Modifier.padding(inner),
             navController = navController,
-            repository = repository
+            repository = repository,
+            preferencesManager = preferencesManager
         )
     }
 }
 
 @ExperimentalMaterial3ExpressiveApi
 @Composable
-fun NavigationRailScaffold(navController: NavHostController, repository: ProductoRepository) {
+fun NavigationRailScaffold(
+    navController: NavHostController,
+    repository: ProductoRepository,
+    preferencesManager: PreferencesManager
+) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -169,7 +186,8 @@ fun NavigationRailScaffold(navController: NavHostController, repository: Product
                 .fillMaxSize()
                 .padding(16.dp),
             navController = navController,
-            repository = repository
+            repository = repository,
+            preferencesManager = preferencesManager
         )
     }
 }
@@ -178,14 +196,15 @@ fun NavigationRailScaffold(navController: NavHostController, repository: Product
 fun ScreenContent(
     modifier: Modifier,
     navController: NavHostController,
-    repository: ProductoRepository
+    repository: ProductoRepository,
+    preferencesManager: PreferencesManager
 ) {
     Box(modifier) {
         NavHost(navController = navController, startDestination = "home") {
             // Home Screen
             composable("home") {
                 val viewModel: HomeViewModel = viewModel(
-                    factory = HomeViewModelFactory(repository)
+                    factory = HomeViewModelFactory(repository, preferencesManager)
                 )
                 HomeScreen(viewModel = viewModel)
             }
@@ -193,7 +212,7 @@ fun ScreenContent(
             composable("buscar") {
                 BuscarScreen(navController, repository)
             }
-            composable("config") { ConfigScreen() }
+            composable("config") { ConfigScreen(preferencesManager = preferencesManager) }
             // Agregar Screen
             composable("AgregarScreen?nombre={nombre}") { backStackEntry ->
                 val nombre = backStackEntry.arguments?.getString("nombre") ?: ""

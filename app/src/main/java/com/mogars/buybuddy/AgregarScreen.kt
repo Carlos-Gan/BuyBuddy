@@ -1,6 +1,7 @@
 package com.mogars.buybuddy
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -22,7 +23,6 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.mogars.buybuddy.ViewModels.AgregarViewModel
@@ -50,6 +50,7 @@ fun AgregarScreen(
     var expandedToolbar by rememberSaveable { mutableStateOf(true) }
     var expandedUnidad by rememberSaveable { mutableStateOf(false) }
     var guardandoProducto by remember { mutableStateOf(false) }
+    var mensajeError by remember { mutableStateOf("") }
 
     val unidadesDisponibles = listOf(
         "Unidad",
@@ -62,13 +63,32 @@ fun AgregarScreen(
         "Docena"
     )
 
+    // Función para extraer solo la unidad (sin paréntesis)
+    fun obtenerUnidadLimpia(unidad: String): String {
+        return when {
+            unidad.contains("ml") -> "ml"
+            unidad.contains("Litro") -> "L"
+            unidad.contains("Gramo") -> "g"
+            unidad.contains("Kilogramo") -> "kg"
+            unidad.contains("Paquete") -> "Paquete"
+            unidad.contains("Caja") -> "Caja"
+            unidad.contains("Docena") -> "Docena"
+            else -> "Unidad"
+        }
+    }
+
     // Validación mejorada
-    val camposValidos = productName.isNotBlank() &&
-            productMarca.isNotBlank() &&
-            productPrecio.isNotBlank() &&
-            productPrecio.toFloatOrNull() != null &&
-            productCantidad.isNotBlank() &&
-            productCantidad.toFloatOrNull() != null
+    val precioFloat = productPrecio.toFloatOrNull()
+    val cantidadFloat = productCantidad.toFloatOrNull()
+
+    val validacionesIndividuales = mapOf(
+        "Nombre" to (productName.isNotBlank()),
+        "Marca" to (productMarca.isNotBlank()),
+        "Precio" to (productPrecio.isNotBlank() && precioFloat != null && precioFloat > 0),
+        "Cantidad" to (productCantidad.isNotBlank() && cantidadFloat != null && cantidadFloat > 0)
+    )
+
+    val camposValidos = validacionesIndividuales.values.all { it }
 
     // Animación de aparición
     var visible by remember { mutableStateOf(false) }
@@ -109,18 +129,42 @@ fun AgregarScreen(
                             onClick = {
                                 if (camposValidos && viewModel != null && !guardandoProducto) {
                                     guardandoProducto = true
-                                    viewModel.guardarProducto(
-                                        nombre = productName,
-                                        marca = productMarca,
-                                        precio = productPrecio.toFloatOrNull() ?: 0f,
-                                        cantidad = productCantidad.toFloatOrNull() ?: 0f,
-                                        unidad = productUnidadMedida,
-                                        presentacion = productPresentacion.ifEmpty {
-                                            "${productCantidad} ${productUnidadMedida}"
-                                        }
-                                    )
-                                    // Esperar un momento antes de volver
-                                    onBackClick()
+                                    mensajeError = ""
+
+                                    try {
+                                        val unidadLimpia = obtenerUnidadLimpia(productUnidadMedida)
+
+                                        Log.d("AgregarScreen", "Guardando producto:")
+                                        Log.d("AgregarScreen", "  Nombre: $productName")
+                                        Log.d("AgregarScreen", "  Marca: $productMarca")
+                                        Log.d("AgregarScreen", "  Precio: $productPrecio (Float: $precioFloat)")
+                                        Log.d("AgregarScreen", "  Cantidad: $productCantidad (Float: $cantidadFloat)")
+                                        Log.d("AgregarScreen", "  Unidad: $productUnidadMedida -> $unidadLimpia")
+                                        Log.d("AgregarScreen", "  Presentación: ${productPresentacion.ifEmpty { "$productCantidad $unidadLimpia" }}")
+
+                                        viewModel.guardarProducto(
+                                            nombre = productName,
+                                            marca = productMarca,
+                                            precio = precioFloat ?: 0f,
+                                            cantidad = cantidadFloat ?: 0f,
+                                            unidad = unidadLimpia,
+                                            presentacion = productPresentacion.ifEmpty {
+                                                "$productCantidad $unidadLimpia"
+                                            }
+                                        )
+
+                                        // Esperar un momento antes de volver
+                                        onBackClick()
+                                    } catch (e: Exception) {
+                                        mensajeError = "Error al guardar: ${e.message}"
+                                        Log.e("AgregarScreen", "Error al guardar producto", e)
+                                        guardandoProducto = false
+                                    }
+                                } else if (!camposValidos) {
+                                    val camposFaltantes = validacionesIndividuales
+                                        .filter { !it.value }
+                                        .keys.joinToString(", ")
+                                    mensajeError = "Completa: $camposFaltantes"
                                 }
                             },
                             icon = {
@@ -154,6 +198,39 @@ fun AgregarScreen(
                     .padding(horizontal = 20.dp, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
+                // Mostrar mensaje de error si existe
+                if (mensajeError.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(2.dp, RoundedCornerShape(12.dp)),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⚠️",
+                                style = MaterialTheme.typography.headlineMedium
+                            )
+                            Text(
+                                text = mensajeError,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
                 // Header Card
                 AnimatedVisibility(
                     visible = visible,
@@ -208,7 +285,8 @@ fun AgregarScreen(
                             // Campo Nombre
                             FormField(
                                 label = stringResource(R.string.nombre),
-                                isRequired = true
+                                isRequired = true,
+                                isValid = validacionesIndividuales["Nombre"] ?: false
                             ) {
                                 TextInputModificado(
                                     valor = productName,
@@ -223,7 +301,8 @@ fun AgregarScreen(
                             // Campo Marca
                             FormField(
                                 label = stringResource(R.string.marca),
-                                isRequired = true
+                                isRequired = true,
+                                isValid = validacionesIndividuales["Marca"] ?: false
                             ) {
                                 TextInputModificado(
                                     valor = productMarca,
@@ -238,7 +317,8 @@ fun AgregarScreen(
                             // Campo Cantidad
                             FormField(
                                 label = "Cantidad",
-                                isRequired = true
+                                isRequired = true,
+                                isValid = validacionesIndividuales["Cantidad"] ?: false
                             ) {
                                 TextInputModificado(
                                     valor = productCantidad,
@@ -253,7 +333,8 @@ fun AgregarScreen(
                             // Campo Unidad de Medida (Dropdown)
                             FormField(
                                 label = "Unidad de Medida",
-                                isRequired = true
+                                isRequired = true,
+                                isValid = true
                             ) {
                                 Box {
                                     OutlinedButton(
@@ -299,7 +380,8 @@ fun AgregarScreen(
                             // Campo Precio
                             FormField(
                                 label = stringResource(R.string.precio),
-                                isRequired = true
+                                isRequired = true,
+                                isValid = validacionesIndividuales["Precio"] ?: false
                             ) {
                                 TextInputModificado(
                                     valor = productPrecio,
@@ -315,7 +397,8 @@ fun AgregarScreen(
                             // Campo Presentación (Opcional)
                             FormField(
                                 label = "Presentación (Opcional)",
-                                isRequired = false
+                                isRequired = false,
+                                isValid = true
                             ) {
                                 TextInputModificado(
                                     valor = productPresentacion,
@@ -353,7 +436,7 @@ fun AgregarScreen(
                                             fontWeight = FontWeight.Medium
                                         )
                                         Text(
-                                            text = productPresentacion.ifEmpty { "${productCantidad} ${productUnidadMedida}" },
+                                            text = productPresentacion.ifEmpty { "$productCantidad ${obtenerUnidadLimpia(productUnidadMedida)}" },
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = colorResource(R.color.principal)
@@ -371,12 +454,7 @@ fun AgregarScreen(
                     enter = fadeIn(tween(600, delayMillis = 400))
                 ) {
                     ProgressIndicator(
-                        fieldsCompleted = listOf(
-                            productName.isNotBlank(),
-                            productMarca.isNotBlank(),
-                            productCantidad.isNotBlank() && productCantidad.toFloatOrNull() != null,
-                            productPrecio.isNotBlank() && productPrecio.toFloatOrNull() != null
-                        ).count { it },
+                        fieldsCompleted = validacionesIndividuales.values.count { it },
                         totalFields = 4
                     )
                 }
@@ -391,6 +469,7 @@ fun AgregarScreen(
 fun FormField(
     label: String,
     isRequired: Boolean = false,
+    isValid: Boolean = true,
     content: @Composable () -> Unit
 ) {
     Column(
@@ -411,6 +490,13 @@ fun FormField(
                     text = "*",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.error
+                )
+            }
+            if (isRequired && isValid) {
+                Text(
+                    text = "✓",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.Green
                 )
             }
         }
@@ -507,13 +593,5 @@ fun ProgressIndicator(
                 trackColor = colorResource(R.color.gris_claro).copy(alpha = 0.3f)
             )
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun AgregarScreenPreview() {
-    MaterialTheme {
-        AgregarScreen(nombre = "Frijol")
     }
 }
