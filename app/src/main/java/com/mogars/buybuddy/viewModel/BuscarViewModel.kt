@@ -1,4 +1,4 @@
-package com.mogars.buybuddy.ViewModels
+package com.mogars.buybuddy.viewModel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider

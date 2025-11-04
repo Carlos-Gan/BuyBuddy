@@ -3,40 +3,45 @@ package com.mogars.buybuddy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.mogars.buybuddy.data.PreferencesManager
 import kotlinx.coroutines.launch
 
 @Composable
 fun ConfigScreen(preferencesManager: PreferencesManager) {
-    // Estado para guardar preferencias
-    var ocultarCompletados by rememberSaveable { mutableStateOf(true) }
-    var mostrarPrecioPromedio by rememberSaveable { mutableStateOf(false) }
-    var ordenarPorNombre by rememberSaveable { mutableStateOf(false) }
+    // ✅ CAMBIO: Usar Flow directamente en lugar de rememberSaveable
+    val ocultarCompletados by preferencesManager.obtenerOcultarCompletados()
+        .collectAsState(initial = true)
+    val mostrarPrecioPromedio by preferencesManager.obtenerMostrarPrecioPromedio()
+        .collectAsState(initial = false)
+    val ordenarPorNombre by preferencesManager.obtenerOrdenarAlfabeticamente()
+        .collectAsState(initial = false)
+    val limpiarCompletadosAuto by preferencesManager.obtenerLimpiarCompletadosAuto()
+        .collectAsState(initial = false)
+    val tiempoLimpiezaMinutos by preferencesManager.obtenerTiempoLimpiezaMinutos()
+        .collectAsState(initial = 5)
+
+    // Estado local para el campo de entrada
+    var tiempoLimpiezaInput by remember { mutableStateOf(tiempoLimpiezaMinutos.toString()) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        // Cargar preferencias
-        preferencesManager.obtenerOcultarCompletados().collect {
-            ocultarCompletados = it
-        }
-        preferencesManager.obtenerMostrarPrecioPromedio().collect {
-            mostrarPrecioPromedio = it
-        }
-        preferencesManager.obtenerOrdenarAlfabeticamente().collect {
-            ordenarPorNombre = it
-        }
+    // Actualizar el input cuando cambia el valor guardado
+    LaunchedEffect(tiempoLimpiezaMinutos) {
+        tiempoLimpiezaInput = tiempoLimpiezaMinutos.toString()
     }
 
     Column(
@@ -65,7 +70,6 @@ fun ConfigScreen(preferencesManager: PreferencesManager) {
                 subtitle = stringResource(R.string.productosMarcadosNoAparecen),
                 isEnabled = ocultarCompletados,
                 onToggle = { nuevoValor ->
-                    ocultarCompletados = nuevoValor
                     coroutineScope.launch {
                         preferencesManager.guardarOcultarCompletados(nuevoValor)
                     }
@@ -78,6 +82,107 @@ fun ConfigScreen(preferencesManager: PreferencesManager) {
                 isEnabled = true,
                 onToggle = { }
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Nueva opción: Limpiar completados automáticamente
+            ConfigOptionItem(
+                title = "Limpiar completados automáticamente",
+                subtitle = "Oculta productos completados después de cierto tiempo",
+                isEnabled = limpiarCompletadosAuto,
+                onToggle = { nuevoValor ->
+                    coroutineScope.launch {
+                        preferencesManager.guardarLimpiarCompletadosAuto(nuevoValor)
+                    }
+                }
+            )
+
+            // Mostrar selector de tiempo si está activado
+            if (limpiarCompletadosAuto) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(1.dp, RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = colorResource(R.color.principal).copy(alpha = 0.08f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.tiempo_de_limpieza),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = tiempoLimpiezaInput,
+                                onValueChange = { nuevoValor ->
+                                    // Solo permitir números
+                                    if (nuevoValor.isEmpty() || nuevoValor.all { it.isDigit() }) {
+                                        tiempoLimpiezaInput = nuevoValor
+                                    }
+                                },
+                                label = { Text(stringResource(R.string.minutos)) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = colorResource(R.color.principal),
+                                    unfocusedBorderColor = colorResource(R.color.gris_claro)
+                                )
+                            )
+
+                            Button(
+                                onClick = {
+                                    val minutos = tiempoLimpiezaInput.toIntOrNull() ?: 5
+                                    coroutineScope.launch {
+                                        preferencesManager.guardarTiempoLimpiezaMinutos(minutos)
+                                        snackbarHostState.showSnackbar(
+                                            message = "Tiempo de limpieza guardado: $minutos minutos",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .height(56.dp)
+                                    .width(95.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = colorResource(R.color.principal)
+                                )
+                            ) {
+                                Text(
+                                    stringResource(R.string.guardar),
+                                    fontWeight = FontWeight.Bold,
+                                    color = colorResource(R.color.white)
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = stringResource(
+                                R.string.los_productos_completados_se_ocultar_n_despu_s_de_minutos,
+                                tiempoLimpiezaMinutos
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
 
         // Sección: Visualización
@@ -90,7 +195,6 @@ fun ConfigScreen(preferencesManager: PreferencesManager) {
                 subtitle = stringResource(R.string.muestra_el_precio_promedio_hist_rico_de_cada_producto),
                 isEnabled = mostrarPrecioPromedio,
                 onToggle = { nuevoValor ->
-                    mostrarPrecioPromedio = nuevoValor
                     coroutineScope.launch {
                         preferencesManager.guardarMostrarPrecioPromedio(nuevoValor)
                     }
@@ -102,7 +206,6 @@ fun ConfigScreen(preferencesManager: PreferencesManager) {
                 subtitle = stringResource(R.string.ordena_los_productos_por_nombre),
                 isEnabled = ordenarPorNombre,
                 onToggle = { nuevoValor ->
-                    ordenarPorNombre = nuevoValor
                     coroutineScope.launch {
                         preferencesManager.guardarOrdenarAlfabeticamente(nuevoValor)
                     }

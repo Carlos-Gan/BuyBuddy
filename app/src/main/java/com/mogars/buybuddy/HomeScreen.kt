@@ -20,18 +20,52 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.res.stringResource
 import com.mogars.buybuddy.ViewModels.HomeViewModel
+import kotlinx.coroutines.delay
 
 /**
  * Pantalla principal con lista de compras tipo checklist
  * Los productos marcados como completados se mueven al final
+ * Después del tiempo configurado, se desactivan automáticamente (estado = false)
  */
 @Composable
 fun HomeScreen(viewModel: HomeViewModel) {
-    // Obtener la lista de productos activos
+    // Obtener la lista de productos activos (solo con estado = true)
     val productos by viewModel.productosActivos.collectAsState(initial = emptyList())
 
-    // ✅ CAMBIO: Obtener el estado de completados del ViewModel (persiste al cambiar de pestaña)
+    // Obtener el estado de completados del ViewModel
     val productosCompletados by viewModel.productosCompletados.collectAsState(initial = emptySet())
+
+    // Obtener preferencias de limpieza automática
+    val limpiarAuto by viewModel.limpiarCompletadosAuto.collectAsState(initial = false)
+    val tiempoLimpieza by viewModel.tiempoLimpiezaMinutos.collectAsState(initial = 5)
+
+    // Rastrear cuándo se completó cada producto
+    var tiemposComplecion by remember { mutableStateOf(mapOf<Int, Long>()) }
+
+    // Efecto para cambiar estado automáticamente después del tiempo
+    LaunchedEffect(limpiarAuto, tiempoLimpieza, productosCompletados) {
+        if (limpiarAuto && tiempoLimpieza > 0) {
+            while (true) {
+                delay(1000) // Verificar cada segundo
+
+                val ahora = System.currentTimeMillis()
+                val tiempoLimpiezaMs = tiempoLimpieza * 60 * 1000L
+
+                // Encontrar productos completados que deben ser desactivados
+                val productosADesactivar = productosCompletados.filter { productoId ->
+                    tiemposComplecion.containsKey(productoId) && // Existe en el mapa
+                            (ahora - tiemposComplecion[productoId]!!) >= tiempoLimpiezaMs // Pasó el tiempo
+                }
+
+                // Desactivar productos (cambiar estado a false en la BD)
+                productosADesactivar.forEach { productoId ->
+                    viewModel.actualizarEstadoProducto(productoId, false)
+                    // Remover del mapa de tiempos
+                    tiemposComplecion = tiemposComplecion - productoId
+                }
+            }
+        }
+    }
 
     // Separar productos completados de incompletos
     val productosIncompletos = productos.filter { it.id !in productosCompletados }
@@ -66,8 +100,9 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         producto = producto,
                         isCompleted = false,
                         onToggleComplete = {
-                            // ✅ CAMBIO: Llamar al ViewModel en lugar de actualizar estado local
                             viewModel.marcarComoCompletado(producto.id)
+                            // Registrar el tiempo de compleción
+                            tiemposComplecion = tiemposComplecion + (producto.id to System.currentTimeMillis())
                         },
                         onEliminar = { viewModel.eliminarProducto(producto.id) }
                     )
@@ -92,10 +127,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         producto = producto,
                         isCompleted = true,
                         onToggleComplete = {
-                            // ✅ CAMBIO: Llamar al ViewModel en lugar de actualizar estado local
                             viewModel.marcarComoNoCompletado(producto.id)
+                            // Remover del mapa de tiempos
+                            tiemposComplecion = tiemposComplecion - producto.id
                         },
-                        onEliminar = { viewModel.eliminarProducto(producto.id) }
+                        onEliminar = {
+                            viewModel.eliminarProducto(producto.id)
+                        }
                     )
                 }
             }

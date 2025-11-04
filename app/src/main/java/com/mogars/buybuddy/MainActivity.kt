@@ -27,14 +27,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.mogars.buybuddy.ViewModels.AgregarViewModel
-import com.mogars.buybuddy.ViewModels.AgregarViewModelFactory
 import com.mogars.buybuddy.ViewModels.HomeViewModel
 import com.mogars.buybuddy.ViewModels.HomeViewModelFactory
 import com.mogars.buybuddy.data.PreferencesManager
 import com.mogars.buybuddy.data.local.AppDatabase
 import com.mogars.buybuddy.data.repository.ProductoRepository
 import com.mogars.buybuddy.ui.theme.BuyBuddyTheme
+import com.mogars.buybuddy.viewModel.AgregarViewModel
+import com.mogars.buybuddy.viewModel.AgregarViewModelFactory
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Solid
 import compose.icons.fontawesomeicons.solid.Hammer
@@ -89,6 +89,8 @@ fun BottomBarScaffold(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // ✅ CLAVE: Crear el ViewModel UNA SOLA VEZ aquí
     val homeViewModel: HomeViewModel = viewModel(
         factory = HomeViewModelFactory(repository, preferencesManager)
     )
@@ -132,11 +134,13 @@ fun BottomBarScaffold(
             }
         }
     ) { inner ->
+        // ✅ Pasar el viewModel ya creado
         ScreenContent(
             modifier = Modifier.padding(inner),
             navController = navController,
             repository = repository,
-            preferencesManager = preferencesManager
+            preferencesManager = preferencesManager,
+            homeViewModel = homeViewModel
         )
     }
 }
@@ -150,6 +154,11 @@ fun NavigationRailScaffold(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // ✅ CLAVE: Crear el ViewModel UNA SOLA VEZ aquí
+    val homeViewModel: HomeViewModel = viewModel(
+        factory = HomeViewModelFactory(repository, preferencesManager)
+    )
 
     Row(Modifier.fillMaxSize()) {
         NavigationRail {
@@ -181,13 +190,15 @@ fun NavigationRailScaffold(
                 }
             )
         }
+        // ✅ Pasar el viewModel ya creado
         ScreenContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
             navController = navController,
             repository = repository,
-            preferencesManager = preferencesManager
+            preferencesManager = preferencesManager,
+            homeViewModel = homeViewModel
         )
     }
 }
@@ -197,16 +208,15 @@ fun ScreenContent(
     modifier: Modifier,
     navController: NavHostController,
     repository: ProductoRepository,
-    preferencesManager: PreferencesManager
+    preferencesManager: PreferencesManager,
+    homeViewModel: HomeViewModel  // ✅ NUEVO: Recibir el ViewModel como parámetro
 ) {
     Box(modifier) {
         NavHost(navController = navController, startDestination = "home") {
             // Home Screen
             composable("home") {
-                val viewModel: HomeViewModel = viewModel(
-                    factory = HomeViewModelFactory(repository, preferencesManager)
-                )
-                HomeScreen(viewModel = viewModel)
+                // ✅ Usar el ViewModel pasado en lugar de crear uno nuevo
+                HomeScreen(viewModel = homeViewModel)
             }
             // Buscar Screen
             composable("buscar") {

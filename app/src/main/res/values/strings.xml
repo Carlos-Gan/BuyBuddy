@@ -42,4 +42,11 @@
     <string name="mostrar_precio_promedio">Mostrar precio promedio</string>
     <string name="personalizacionListaCompras">Personaliza cómo ves tu lista de compras</string>
     <string name="visualizacion">Visualización</string>
+    <string name="guardar">Guardar</string>
+    <string name="los_productos_completados_se_ocultaran_despues_de_minutos">Los productos completados se ocultarán después de %1$s minutos</string>
+    <string name="minutos">Minutos</string>
+    <string name="tiempo_de_limpieza">Tiempo de limpieza</string>
+    <string name="limpiar_completados_autom_ticamente">Limpiar completados automáticamente</string>
+    <string name="oculta_productos_completados_despu_s_de_cierto_tiempo">Oculta productos completados después de cierto tiempo</string>
+    <string name="los_productos_completados_se_ocultar_n_despu_s_de_minutos">Los productos completados se ocultarán después de %1$d minutos</string>
 </resources>

@@ -5,21 +5,24 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "buy_buddy_preferences")
+
 class PreferencesManager(private val context: Context) {
 
     companion object {
-        private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "buy_buddy_preferences")
-
         // Claves de preferencias
         private val PRODUCTOS_COMPLETADOS = stringSetPreferencesKey("productos_completados")
         private val OCULTAR_COMPLETADOS = booleanPreferencesKey("ocultar_completados")
         private val MOSTRAR_PRECIO_PROMEDIO = booleanPreferencesKey("mostrar_precio_promedio")
         private val ORDENAR_ALFABETICAMENTE = booleanPreferencesKey("ordenar_alfabeticamente")
+        private val LIMPIAR_COMPLETADOS_AUTO = booleanPreferencesKey("limpiar_completados_auto")
+        private val TIEMPO_LIMPIEZA_MINUTOS = intPreferencesKey("tiempo_limpieza_minutos")
     }
 
     // ========== PRODUCTOS COMPLETADOS ==========
@@ -108,6 +111,38 @@ class PreferencesManager(private val context: Context) {
     suspend fun guardarOrdenarAlfabeticamente(valor: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[ORDENAR_ALFABETICAMENTE] = valor
+        }
+    }
+
+    // ========== LIMPIEZA AUTOMÁTICA DE COMPLETADOS ==========
+
+    /**
+     * Obtiene la preferencia: limpiar completados automáticamente
+     */
+    fun obtenerLimpiarCompletadosAuto(): Flow<Boolean> {
+        return context.dataStore.data.map { preferences ->
+            preferences[LIMPIAR_COMPLETADOS_AUTO] ?: false
+        }
+    }
+
+    suspend fun guardarLimpiarCompletadosAuto(valor: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[LIMPIAR_COMPLETADOS_AUTO] = valor
+        }
+    }
+
+    /**
+     * Obtiene el tiempo de limpieza en minutos
+     */
+    fun obtenerTiempoLimpiezaMinutos(): Flow<Int> {
+        return context.dataStore.data.map { preferences ->
+            preferences[TIEMPO_LIMPIEZA_MINUTOS] ?: 5
+        }
+    }
+
+    suspend fun guardarTiempoLimpiezaMinutos(valor: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[TIEMPO_LIMPIEZA_MINUTOS] = valor
         }
     }
 }

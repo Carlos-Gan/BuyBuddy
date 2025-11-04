@@ -13,10 +13,15 @@ class HomeViewModel(
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
+    // ✅ Obtener solo productos activos (estado = true)
     val productosActivos = repository.obtenerProductosActivos()
 
-    // ✅ Obtener directamente del PreferencesManager (persiste en BD)
+    // ✅ El estado de completados se persiste en PreferencesManager
     val productosCompletados: Flow<Set<Int>> = preferencesManager.obtenerProductosCompletados()
+
+    // ✅ NUEVAS: Preferencias de limpieza automática
+    val limpiarCompletadosAuto: Flow<Boolean> = preferencesManager.obtenerLimpiarCompletadosAuto()
+    val tiempoLimpiezaMinutos: Flow<Int> = preferencesManager.obtenerTiempoLimpiezaMinutos()
 
     fun marcarComoCompletado(id: Int) {
         viewModelScope.launch {
